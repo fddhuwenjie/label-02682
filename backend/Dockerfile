@@ -26,7 +26,8 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # 复制应用代码
-COPY . .
+COPY app ./app
+COPY config.yaml .
 
 # 创建非root用户
 RUN useradd -m -u 1000 appuser && \

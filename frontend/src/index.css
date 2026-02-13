@@ -272,15 +272,55 @@ body {
   color: var(--text-secondary) !important;
 }
 
-/* Popconfirm */
+/* Popconfirm / Popover */
+.ant-popover {
+  --antd-arrow-background-color: var(--bg-secondary) !important;
+}
+
 .ant-popover-inner {
   background: var(--bg-secondary) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: 12px !important;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+.ant-popover-arrow::before,
+.ant-popover-arrow::after {
+  background: var(--bg-secondary) !important;
+}
+
+.ant-popconfirm-message {
+  color: var(--text-primary) !important;
 }
 
 .ant-popconfirm-message-title {
   color: var(--text-primary) !important;
+}
+
+.ant-popconfirm-message-icon .anticon {
+  color: #faad14 !important;
+}
+
+.ant-popconfirm-buttons {
+  margin-top: 12px !important;
+}
+
+.ant-popconfirm-buttons .ant-btn-default {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-popconfirm-buttons .ant-btn-default:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #fff !important;
+}
+
+.ant-popconfirm-buttons .ant-btn-primary {
+  background: #3b82f6 !important;
+  border: none !important;
+  color: #fff !important;
 }
 
 /* Message */

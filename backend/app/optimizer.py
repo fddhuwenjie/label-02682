@@ -56,13 +56,14 @@ class DNSGAIIOptimizer:
         unmet = len(individual) - sum(individual)
         
         # 目标2: 座位利用率
+        # f₂(I) = (Σ (T_end(i) - T_start(i)) * sᵢ) / (Total_Seats * Simulation_Duration)
         total_occupied = 0
         for i, status in enumerate(individual):
             if status == 1:
                 req = self.current_requests[i]
                 total_occupied += req.end_time - req.start_time
         
-        max_capacity = self.total_seats * settings.ROLLING_HORIZON
+        max_capacity = self.total_seats * settings.SIMULATION_DURATION
         utilization = total_occupied / max_capacity if max_capacity > 0 else 0
         
         # 目标3: 公平性
@@ -78,29 +79,29 @@ class DNSGAIIOptimizer:
         return (unmet + penalty, -utilization, -fairness)
     
     def _check_conflicts(self, individual: List[int]) -> float:
-        """检查时间冲突 - 同一座位同一时间不能分配给多人"""
+        """检查时间冲突 - 检查所有被满足的请求之间是否存在时间重叠
+        
+        规范要求：返回True/False，有冲突则给固定惩罚值10000
+        """
         met_requests = [(i, self.current_requests[i]) for i, s in enumerate(individual) if s == 1]
         
-        # 按座位分组检查
-        seat_schedules: Dict[int, List[Tuple[int, int]]] = {}
+        if not met_requests:
+            return 0.0
+        
+        # 检查任意两个被满足请求之间的时间冲突
+        # 同一时刻被满足的请求数不能超过总座位数
+        all_times = set()
         for idx, req in met_requests:
-            seat_id = req.seat_id if req.seat_id else 0
-            if seat_id not in seat_schedules:
-                seat_schedules[seat_id] = []
-            seat_schedules[seat_id].append((req.start_time, req.end_time))
+            all_times.add(req.start_time)
+            all_times.add(req.end_time)
         
-        conflicts = 0
-        for seat_id, times in seat_schedules.items():
-            if seat_id == 0:
-                # 未分配座位的请求，检查是否超过总座位数
-                continue
-            times.sort()
-            for i in range(len(times) - 1):
-                # 检查时间重叠
-                if times[i][1] > times[i + 1][0]:
-                    conflicts += 1
+        for t in all_times:
+            # 计算时刻t的并发请求数
+            concurrent = sum(1 for idx, req in met_requests if req.start_time <= t < req.end_time)
+            if concurrent > self.total_seats:
+                return 10000.0  # 固定惩罚值
         
-        return conflicts * 10000  # 大惩罚
+        return 0.0
     
     def _create_elite_population(self, pop_size: int) -> List[Any]:
         """动态初始化: 混合精英解与新解"""

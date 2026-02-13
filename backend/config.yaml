@@ -1,0 +1,48 @@
+# 自习室座位优化系统配置文件
+
+# 场景参数
+scenario:
+  total_seats: 100
+  simulation_duration: 720  # 12小时(分钟)
+  rolling_horizon: 60       # 滚动时域(分钟)
+
+# 时段配置
+time_periods:
+  - name: "早间"
+    start: 0      # 8:00
+    end: 180      # 11:00
+    request_rate: 0.3
+    avg_duration: 90
+  - name: "午间"
+    start: 180    # 11:00
+    end: 300      # 13:00
+    request_rate: 0.1
+    avg_duration: 60
+  - name: "下午"
+    start: 300    # 13:00
+    end: 480      # 16:00
+    request_rate: 0.4
+    avg_duration: 120
+  - name: "傍晚"
+    start: 480    # 16:00
+    end: 540      # 17:00
+    request_rate: 0.2
+    avg_duration: 60
+  - name: "晚间"
+    start: 540    # 17:00
+    end: 720      # 20:00
+    request_rate: 0.5
+    avg_duration: 150
+
+# D-NSGA-II优化参数
+optimizer:
+  population_size: 52       # 必须是4的倍数
+  n_generations: 30
+  crossover_prob: 0.8
+  mutation_prob: 0.2
+  elite_ratio: 0.3          # 精英解继承比例
+
+# 事件触发阈值
+triggers:
+  high_priority_threshold: 3
+  queue_length_threshold: 20

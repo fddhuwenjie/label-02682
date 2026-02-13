@@ -3,7 +3,7 @@ import random
 import asyncio
 from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
-from .config import settings
+from .config import settings, get_time_periods_config
 from .models import Reservation, RequestPriority, RequestStatus
 from .optimizer import optimizer
 import logging
@@ -21,14 +21,32 @@ class TimePeriod:
         self.avg_duration = avg_duration
 
 
-# 默认时段配置
-DEFAULT_PERIODS = [
-    TimePeriod("早间", 0, 180, 0.3, 90),      # 8:00-11:00
-    TimePeriod("午间", 180, 300, 0.1, 60),    # 11:00-13:00
-    TimePeriod("下午", 300, 480, 0.4, 120),   # 13:00-16:00
-    TimePeriod("傍晚", 480, 540, 0.2, 60),    # 16:00-17:00
-    TimePeriod("晚间", 540, 720, 0.5, 150),   # 17:00-20:00
-]
+def load_time_periods() -> List[TimePeriod]:
+    """从配置文件加载时段配置，若无则使用默认值"""
+    config_periods = get_time_periods_config()
+    if config_periods:
+        return [
+            TimePeriod(
+                p["name"],
+                p["start"],
+                p["end"],
+                p["request_rate"],
+                p["avg_duration"]
+            )
+            for p in config_periods
+        ]
+    # 默认时段配置
+    return [
+        TimePeriod("早间", 0, 180, 0.3, 90),      # 8:00-11:00
+        TimePeriod("午间", 180, 300, 0.1, 60),    # 11:00-13:00
+        TimePeriod("下午", 300, 480, 0.4, 120),   # 13:00-16:00
+        TimePeriod("傍晚", 480, 540, 0.2, 60),    # 16:00-17:00
+        TimePeriod("晚间", 540, 720, 0.5, 150),   # 17:00-20:00
+    ]
+
+
+# 从配置文件加载时段
+DEFAULT_PERIODS = load_time_periods()
 
 
 class Simulator:
@@ -80,8 +98,8 @@ class Simulator:
                 return period
         return None
     
-    def _find_available_seat(self, start_time: int, end_time: int) -> int:
-        """查找指定时段内空闲的座位"""
+    def _find_available_seat(self, start_time: int, end_time: int) -> Optional[int]:
+        """查找指定时段内空闲的座位，无空闲座位时返回None"""
         # 统计每个座位在该时段的占用情况
         seat_occupied = {i: False for i in range(1, settings.TOTAL_SEATS + 1)}
         
@@ -104,8 +122,8 @@ class Simulator:
             if not occupied:
                 return seat_id
         
-        # 如果没有空闲座位，随机分配（会在优化时被检测为冲突）
-        return random.randint(1, settings.TOTAL_SEATS)
+        # 无空闲座位，返回None表示无法分配
+        return None
     
     def _time_overlap(self, s1: int, e1: int, s2: int, e2: int) -> bool:
         """检查两个时间段是否重叠"""
@@ -141,7 +159,7 @@ class Simulator:
         request = {
             "id": self.request_id_counter,
             "user_id": random.randint(1, 100),
-            "seat_id": seat_id,
+            "seat_id": seat_id,  # 可能为None，表示暂无可用座位，等待优化器处理
             "start_time": start_time,
             "end_time": end_time,
             "priority": priority,
@@ -216,15 +234,25 @@ class Simulator:
             self.is_optimizing = False
     
     def apply_solution(self, solution: Dict):
-        """应用选定的Pareto解"""
+        """应用选定的Pareto解，确保座位分配不冲突"""
         approved_ids = set(solution["assignments"])
+        
+        # 按开始时间排序待批准的请求，优先处理早的请求
+        pending_to_approve = [req for req in self.pending_requests if req["id"] in approved_ids]
+        pending_to_approve.sort(key=lambda r: r["start_time"])
         
         new_pending = []
         for req in self.pending_requests:
             if req["id"] in approved_ids:
-                req["status"] = RequestStatus.APPROVED
-                req["seat_id"] = random.randint(1, settings.TOTAL_SEATS)
-                self.approved_requests.append(req)
+                # 重新分配座位，确保不冲突
+                seat_id = self._find_available_seat(req["start_time"], req["end_time"])
+                if seat_id is not None:
+                    req["status"] = RequestStatus.APPROVED
+                    req["seat_id"] = seat_id
+                    self.approved_requests.append(req)
+                else:
+                    # 无可用座位，保留在待处理队列
+                    new_pending.append(req)
             else:
                 new_pending.append(req)
         
