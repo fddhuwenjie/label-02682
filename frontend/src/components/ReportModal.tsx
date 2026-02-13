@@ -1,6 +1,11 @@
 import React from 'react'
-import { Modal, Descriptions, Statistic, Row, Col, Divider } from 'antd'
-import ReactECharts from 'echarts-for-react'
+import { Modal, Row, Col, Progress } from 'antd'
+import { 
+  CheckCircleOutlined, 
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  ThunderboltOutlined
+} from '@ant-design/icons'
 import { SimulationReport } from '../types'
 
 interface Props {
@@ -14,72 +19,202 @@ const ReportModal: React.FC<Props> = ({ visible, report, onClose }) => {
 
   const { summary, optimization_stats } = report
 
-  const pieOption = {
-    title: { text: '请求处理分布', left: 'center' },
-    tooltip: { trigger: 'item' },
-    series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      data: [
-        { value: summary.approved, name: '已批准', itemStyle: { color: '#52c41a' } },
-        { value: summary.rejected, name: '已拒绝', itemStyle: { color: '#ff4d4f' } },
-        { value: summary.pending, name: '待处理', itemStyle: { color: '#faad14' } }
-      ]
-    }]
-  }
-
-  const triggerOption = {
-    title: { text: '触发类型分布', left: 'center' },
-    tooltip: { trigger: 'item' },
-    series: [{
-      type: 'pie',
-      radius: '60%',
-      data: [
-        { value: optimization_stats.event_triggered, name: '事件触发', itemStyle: { color: '#fa8c16' } },
-        { value: optimization_stats.time_triggered, name: '时间触发', itemStyle: { color: '#1890ff' } }
-      ]
-    }]
-  }
+  const stats = [
+    {
+      icon: <CheckCircleOutlined />,
+      label: '已批准',
+      value: summary.approved,
+      color: '#10b981'
+    },
+    {
+      icon: <CloseCircleOutlined />,
+      label: '已拒绝',
+      value: summary.rejected,
+      color: '#ef4444'
+    },
+    {
+      icon: <ClockCircleOutlined />,
+      label: '待处理',
+      value: summary.pending,
+      color: '#f59e0b'
+    }
+  ]
 
   return (
     <Modal
-      title="模拟报告"
+      title={null}
       open={visible}
       onCancel={onClose}
-      width={800}
       footer={null}
+      width={600}
+      styles={{
+        content: {
+          background: 'linear-gradient(145deg, rgba(24, 24, 27, 0.98), rgba(17, 17, 19, 0.99))',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 20,
+          padding: 0
+        },
+        body: {
+          padding: 32
+        }
+      }}
     >
-      <Descriptions title="汇总统计" bordered column={2}>
-        <Descriptions.Item label="总请求数">{summary.total_requests}</Descriptions.Item>
-        <Descriptions.Item label="批准率">{(summary.approval_rate * 100).toFixed(1)}%</Descriptions.Item>
-        <Descriptions.Item label="优化次数">{optimization_stats.total_optimizations}</Descriptions.Item>
-        <Descriptions.Item label="平均优化耗时">{optimization_stats.avg_execution_time.toFixed(3)}s</Descriptions.Item>
-      </Descriptions>
+      <h2 style={{ 
+        margin: 0, 
+        marginBottom: 32,
+        fontSize: 20, 
+        fontWeight: 600,
+        color: '#fafafa',
+        textAlign: 'center'
+      }}>
+        模拟报告
+      </h2>
 
-      <Divider />
+      {/* 总请求数 */}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 32,
+        padding: 24,
+        background: 'rgba(255, 255, 255, 0.02)',
+        borderRadius: 16,
+        border: '1px solid rgba(255, 255, 255, 0.05)'
+      }}>
+        <div style={{ 
+          fontSize: 48, 
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>
+          {summary.total_requests}
+        </div>
+        <div style={{ fontSize: 14, color: '#71717a', marginTop: 4 }}>
+          总请求数
+        </div>
+      </div>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <ReactECharts option={pieOption} style={{ height: 250 }} />
-        </Col>
-        <Col span={12}>
-          <ReactECharts option={triggerOption} style={{ height: 250 }} />
-        </Col>
+      {/* 请求统计 */}
+      <Row gutter={16} style={{ marginBottom: 32 }}>
+        {stats.map((stat, index) => (
+          <Col span={8} key={index}>
+            <div style={{
+              textAlign: 'center',
+              padding: 20,
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: 12,
+              border: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
+              <div style={{ 
+                fontSize: 28, 
+                fontWeight: 600,
+                color: stat.color,
+                marginBottom: 4
+              }}>
+                {stat.value}
+              </div>
+              <div style={{ 
+                fontSize: 12, 
+                color: '#71717a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4
+              }}>
+                <span style={{ color: stat.color }}>{stat.icon}</span>
+                {stat.label}
+              </div>
+            </div>
+          </Col>
+        ))}
       </Row>
 
-      <Divider />
+      {/* 批准率 */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          marginBottom: 8
+        }}>
+          <span style={{ fontSize: 14, color: '#a1a1aa' }}>批准率</span>
+          <span style={{ 
+            fontSize: 14, 
+            fontWeight: 600,
+            color: '#10b981'
+          }}>
+            {(summary.approval_rate * 100).toFixed(1)}%
+          </span>
+        </div>
+        <Progress 
+          percent={summary.approval_rate * 100}
+          showInfo={false}
+          strokeColor={{
+            '0%': '#10b981',
+            '100%': '#059669'
+          }}
+          trailColor="rgba(255, 255, 255, 0.05)"
+        />
+      </div>
 
-      <Row gutter={16}>
-        <Col span={8}>
-          <Statistic title="事件触发次数" value={optimization_stats.event_triggered} valueStyle={{ color: '#fa8c16' }} />
-        </Col>
-        <Col span={8}>
-          <Statistic title="时间触发次数" value={optimization_stats.time_triggered} valueStyle={{ color: '#1890ff' }} />
-        </Col>
-        <Col span={8}>
-          <Statistic title="D-NSGA-II优势" value="动态继承" />
-        </Col>
-      </Row>
+      {/* 优化统计 */}
+      <div style={{
+        padding: 20,
+        background: 'rgba(139, 92, 246, 0.1)',
+        borderRadius: 12,
+        border: '1px solid rgba(139, 92, 246, 0.2)'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 8,
+          marginBottom: 16
+        }}>
+          <ThunderboltOutlined style={{ color: '#8b5cf6' }} />
+          <span style={{ fontSize: 14, fontWeight: 500, color: '#fafafa' }}>
+            优化统计
+          </span>
+        </div>
+        
+        <Row gutter={16}>
+          <Col span={8}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#8b5cf6' }}>
+                {optimization_stats.total_optimizations}
+              </div>
+              <div style={{ fontSize: 11, color: '#71717a' }}>总优化次数</div>
+            </div>
+          </Col>
+          <Col span={8}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#ef4444' }}>
+                {optimization_stats.event_triggered}
+              </div>
+              <div style={{ fontSize: 11, color: '#71717a' }}>事件触发</div>
+            </div>
+          </Col>
+          <Col span={8}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#3b82f6' }}>
+                {optimization_stats.time_triggered}
+              </div>
+              <div style={{ fontSize: 11, color: '#71717a' }}>时间触发</div>
+            </div>
+          </Col>
+        </Row>
+        
+        <div style={{ 
+          marginTop: 16, 
+          paddingTop: 16,
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          textAlign: 'center'
+        }}>
+          <span style={{ fontSize: 12, color: '#71717a' }}>
+            平均执行时间: 
+            <span style={{ color: '#10b981', marginLeft: 4 }}>
+              {optimization_stats.avg_execution_time.toFixed(3)}s
+            </span>
+          </span>
+        </div>
+      </div>
     </Modal>
   )
 }

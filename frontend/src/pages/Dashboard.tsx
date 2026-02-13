@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Layout, Row, Col, Button, message, Card, Table, Tag, Space } from 'antd'
-import { FileTextOutlined } from '@ant-design/icons'
+import { Layout, Row, Col, Button, message, Table, Space, Empty } from 'antd'
+import { FileTextOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuth } from '../context/AuthContext'
 import { simulationApi } from '../api'
 import { SystemStatus, ParetoSolution, SimulationReport } from '../types'
@@ -32,7 +32,6 @@ const Dashboard: React.FC = () => {
       setStatus(statusData)
       setLogs(reportData.logs || [])
       
-      // 获取最新的Pareto前沿
       if (historyData.length > 0) {
         const latest = historyData[historyData.length - 1]
         setParetoSolutions(latest.solutions || [])
@@ -44,7 +43,6 @@ const Dashboard: React.FC = () => {
     }
   }, [])
 
-  // WebSocket连接
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/api/simulation/ws`
@@ -114,7 +112,11 @@ const Dashboard: React.FC = () => {
       title: '利用率', 
       dataIndex: 'utilization_rate', 
       key: 'utilization_rate',
-      render: (v: number) => `${(v * 100).toFixed(1)}%`,
+      render: (v: number) => (
+        <span style={{ color: '#3b82f6', fontWeight: 500 }}>
+          {(v * 100).toFixed(1)}%
+        </span>
+      ),
       sorter: (a: ParetoSolution, b: ParetoSolution) => a.utilization_rate - b.utilization_rate
     },
     { 
@@ -132,6 +134,10 @@ const Dashboard: React.FC = () => {
           type="link" 
           size="small"
           onClick={() => handleSelectSolution(record)}
+          style={{ 
+            color: '#8b5cf6',
+            padding: 0
+          }}
         >
           应用此解
         </Button>
@@ -140,60 +146,153 @@ const Dashboard: React.FC = () => {
   ]
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', background: '#0a0a0b' }}>
       <Header style={{ 
-        background: '#fff', 
-        padding: '0 24px', 
+        background: 'rgba(10, 10, 11, 0.8)',
+        backdropFilter: 'blur(20px)',
+        padding: '0 32px', 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        height: 64
       }}>
-        <h2 style={{ margin: 0 }}>D-NSGA-II 自习室资源分配系统</h2>
-        <Space>
-          <Button icon={<FileTextOutlined />} onClick={handleShowReport}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+            fontWeight: 700,
+            color: '#fff'
+          }}>
+            D
+          </div>
+          <h1 style={{ 
+            margin: 0, 
+            fontSize: 18, 
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #fafafa, #a1a1aa)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            D-NSGA-II 智能资源分配
+          </h1>
+        </div>
+        <Space size={12} align="center">
+          <Button 
+            icon={<FileTextOutlined />} 
+            onClick={handleShowReport}
+          >
             查看报告
           </Button>
-          <Tag color={user?.role === 'admin' ? 'gold' : 'blue'}>
-            {user?.username} ({user?.role === 'admin' ? '管理员' : '学生'})
-          </Tag>
-          <Button onClick={logout}>退出</Button>
+          <span style={{ fontSize: 13, color: '#fafafa' }}>
+            {user?.username}
+          </span>
+          <span style={{ 
+            fontSize: 11, 
+            color: user?.role === 'admin' ? '#fbbf24' : '#3b82f6',
+            background: user?.role === 'admin' 
+              ? 'rgba(251, 191, 36, 0.15)' 
+              : 'rgba(59, 130, 246, 0.15)',
+            padding: '2px 8px',
+            borderRadius: 4
+          }}>
+            {user?.role === 'admin' ? '管理员' : '学生'}
+          </span>
+          <Button 
+            icon={<LogoutOutlined />} 
+            onClick={logout}
+          >
+            退出
+          </Button>
         </Space>
       </Header>
       
-      <Content style={{ padding: 24 }}>
-        <Row gutter={[16, 16]}>
-          <Col span={24}>
-            <StatusCard status={status} />
-          </Col>
-          
-          {user?.role === 'admin' && (
-            <Col span={24}>
-              <ControlPanel 
-                isRunning={status?.is_running || false} 
-                onRefresh={fetchData}
-              />
-            </Col>
-          )}
-          
-          <Col span={12}>
-            <ParetoChart 
-              solutions={paretoSolutions}
-              onSelect={handleSelectSolution}
-              selectedId={selectedSolution?.id}
+      <Content style={{ padding: '32px 32px 32px 32px' }}>
+        <div style={{ marginBottom: 24 }}>
+          <StatusCard status={status} />
+        </div>
+        
+        {user?.role === 'admin' && (
+          <div style={{ marginBottom: 24 }}>
+            <ControlPanel 
+              isRunning={status?.is_running || false} 
+              onRefresh={fetchData}
             />
+          </div>
+        )}
+        
+        <Row gutter={[24, 24]}>
+          <Col span={12}>
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(24, 24, 27, 0.8), rgba(17, 17, 19, 0.9))',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 20,
+              padding: 24,
+              height: 450
+            }}>
+              <ParetoChart 
+                solutions={paretoSolutions}
+                onSelect={handleSelectSolution}
+                selectedId={selectedSolution?.id}
+              />
+            </div>
           </Col>
           
           <Col span={12}>
-            <Card title="Pareto解集详情">
-              <Table 
-                dataSource={paretoSolutions.map((s: ParetoSolution) => ({ ...s, key: s.id }))}
-                columns={solutionColumns}
-                size="small"
-                pagination={false}
-                scroll={{ y: 280 }}
-              />
-            </Card>
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(24, 24, 27, 0.8), rgba(17, 17, 19, 0.9))',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 20,
+              padding: 24,
+              height: 450,
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <h3 style={{ 
+                margin: 0, 
+                marginBottom: 16,
+                fontSize: 16, 
+                fontWeight: 600,
+                color: '#fafafa'
+              }}>
+                Pareto 解集详情
+              </h3>
+              {paretoSolutions.length > 0 ? (
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <Table 
+                    dataSource={paretoSolutions.map((s: ParetoSolution) => ({ ...s, key: s.id }))}
+                    columns={solutionColumns}
+                    size="small"
+                    pagination={false}
+                    scroll={{ y: 340 }}
+                  />
+                </div>
+              ) : (
+                <div style={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  borderRadius: 12,
+                  border: '1px solid rgba(255, 255, 255, 0.05)'
+                }}>
+                  <Empty 
+                    description={<span style={{ color: '#71717a' }}>暂无数据</span>}
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                </div>
+              )}
+            </div>
           </Col>
           
           <Col span={24}>
