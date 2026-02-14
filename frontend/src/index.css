@@ -549,3 +549,65 @@ body {
 .ant-table-sticky-scroll-bar {
   display: none !important;
 }
+
+
+/* Select 下拉框 */
+.ant-select {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-selector {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: var(--accent-blue) !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: var(--accent-blue) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.ant-select-selection-item {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-selection-placeholder {
+  color: var(--text-muted) !important;
+}
+
+.ant-select-arrow {
+  color: var(--text-secondary) !important;
+}
+
+/* Select 下拉菜单 */
+.ant-select-dropdown {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.5) !important;
+  padding: 4px !important;
+}
+
+.ant-select-item {
+  color: var(--text-primary) !important;
+  border-radius: 8px !important;
+}
+
+.ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) .ant-select-item-option-state {
+  color: var(--accent-blue) !important;
+}

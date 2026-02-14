@@ -56,6 +56,33 @@ export interface SimulationReport {
     time_triggered: number
     avg_execution_time: number
   }
+  comparison_stats?: {
+    dnsga2_avg_time: number
+    standard_avg_time: number
+    time_improvement: number
+    dnsga2_avg_pareto_size: number
+    standard_avg_pareto_size: number
+    dnsga2_wins: number
+    standard_wins: number
+    ties: number
+  }
+  comparison_data?: Array<{
+    time: number
+    dnsga2: {
+      execution_time: number
+      pareto_size: number
+      best_unmet: number | null
+      best_utilization: number | null
+      best_fairness: number | null
+    }
+    standard_nsga2: {
+      execution_time: number
+      pareto_size: number
+      best_unmet: number | null
+      best_utilization: number | null
+      best_fairness: number | null
+    }
+  }>
   logs: Array<{
     time: number
     trigger_type: string
@@ -63,5 +90,7 @@ export interface SimulationReport {
     requests_count: number
     pareto_size: number
     execution_time: number
+    standard_pareto_size?: number
+    standard_execution_time?: number
   }>
 }

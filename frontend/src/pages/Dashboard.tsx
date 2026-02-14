@@ -9,8 +9,12 @@ import ParetoChart from '../components/ParetoChart'
 import OptimizationLog from '../components/OptimizationLog'
 import ControlPanel from '../components/ControlPanel'
 import ReportModal from '../components/ReportModal'
+import ReservationForm from '../components/ReservationForm'
+import MyReservations from '../components/MyReservations'
 
 const { Header, Content } = Layout
+
+const MAX_LOGS = 100 // 限制日志数量防止内存泄漏
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -20,7 +24,9 @@ const Dashboard: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([])
   const [report, setReport] = useState<SimulationReport | null>(null)
   const [reportVisible, setReportVisible] = useState(false)
+  const [reservationRefresh, setReservationRefresh] = useState(0)
   const wsRef = React.useRef<WebSocket | null>(null)
+  const mountedRef = React.useRef(true)
 
   const fetchData = useCallback(async () => {
     try {
@@ -29,8 +35,11 @@ const Dashboard: React.FC = () => {
         simulationApi.getReport(),
         simulationApi.getParetoHistory()
       ])
+      // 检查组件是否仍然挂载
+      if (!mountedRef.current) return
+      
       setStatus(statusData)
-      setLogs(reportData.logs || [])
+      setLogs((reportData.logs || []).slice(-MAX_LOGS))
       
       if (historyData.length > 0) {
         const latest = historyData[historyData.length - 1]
@@ -44,6 +53,7 @@ const Dashboard: React.FC = () => {
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/api/simulation/ws`
     const websocket = new WebSocket(wsUrl)
@@ -51,6 +61,7 @@ const Dashboard: React.FC = () => {
     websocket.onopen = () => console.log('WebSocket已连接')
     
     websocket.onmessage = (event) => {
+      if (!mountedRef.current) return
       const msg = JSON.parse(event.data)
       if (msg.type === 'status_update') {
         setStatus(msg.data)
@@ -60,7 +71,7 @@ const Dashboard: React.FC = () => {
           setParetoSolutions(result.pareto_front)
         }
         if (msg.data.log) {
-          setLogs((prev: any[]) => [...prev, msg.data.log])
+          setLogs((prev: any[]) => [...prev, msg.data.log].slice(-MAX_LOGS))
         }
         message.info('优化完成')
       }
@@ -70,7 +81,10 @@ const Dashboard: React.FC = () => {
     websocket.onclose = () => console.log('WebSocket已断开')
     
     wsRef.current = websocket
-    return () => websocket.close()
+    return () => {
+      mountedRef.current = false
+      websocket.close()
+    }
   }, [])
 
   useEffect(() => {
@@ -228,6 +242,18 @@ const Dashboard: React.FC = () => {
               onRefresh={fetchData}
             />
           </div>
+        )}
+
+        {/* 学生预约入口 */}
+        {user?.role === 'student' && (
+          <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
+            <Col span={12}>
+              <ReservationForm onSuccess={() => setReservationRefresh(r => r + 1)} />
+            </Col>
+            <Col span={12}>
+              <MyReservations refreshTrigger={reservationRefresh} />
+            </Col>
+          </Row>
         )}
         
         <Row gutter={[24, 24]}>

@@ -1,12 +1,15 @@
-import React from 'react'
-import { Modal, Row, Col, Progress } from 'antd'
+import React, { useState } from 'react'
+import { Modal, Row, Col, Progress, Tabs } from 'antd'
 import { 
   CheckCircleOutlined, 
   CloseCircleOutlined,
   ClockCircleOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  BarChartOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import { SimulationReport } from '../types'
+import ComparisonChart from './ComparisonChart'
 
 interface Props {
   visible: boolean
@@ -15,6 +18,8 @@ interface Props {
 }
 
 const ReportModal: React.FC<Props> = ({ visible, report, onClose }) => {
+  const [activeTab, setActiveTab] = useState('summary')
+
   if (!report) return null
 
   const { summary, optimization_stats } = report
@@ -40,36 +45,8 @@ const ReportModal: React.FC<Props> = ({ visible, report, onClose }) => {
     }
   ]
 
-  return (
-    <Modal
-      title={null}
-      open={visible}
-      onCancel={onClose}
-      footer={null}
-      width={600}
-      styles={{
-        content: {
-          background: 'linear-gradient(145deg, rgba(24, 24, 27, 0.98), rgba(17, 17, 19, 0.99))',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: 20,
-          padding: 0
-        },
-        body: {
-          padding: 32
-        }
-      }}
-    >
-      <h2 style={{ 
-        margin: 0, 
-        marginBottom: 32,
-        fontSize: 20, 
-        fontWeight: 600,
-        color: '#fafafa',
-        textAlign: 'center'
-      }}>
-        模拟报告
-      </h2>
-
+  const summaryContent = (
+    <>
       {/* 总请求数 */}
       <div style={{
         textAlign: 'center',
@@ -160,7 +137,8 @@ const ReportModal: React.FC<Props> = ({ visible, report, onClose }) => {
         padding: 20,
         background: 'rgba(139, 92, 246, 0.1)',
         borderRadius: 12,
-        border: '1px solid rgba(139, 92, 246, 0.2)'
+        border: '1px solid rgba(139, 92, 246, 0.2)',
+        marginBottom: 24
       }}>
         <div style={{ 
           display: 'flex', 
@@ -215,6 +193,145 @@ const ReportModal: React.FC<Props> = ({ visible, report, onClose }) => {
           </span>
         </div>
       </div>
+
+      {/* D-NSGA-II vs 标准NSGA-II 对比 */}
+      {report.comparison_stats && (
+        <div style={{
+          padding: 20,
+          background: 'rgba(16, 185, 129, 0.1)',
+          borderRadius: 12,
+          border: '1px solid rgba(16, 185, 129, 0.2)'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 8,
+            marginBottom: 16
+          }}>
+            <CheckCircleOutlined style={{ color: '#10b981' }} />
+            <span style={{ fontSize: 14, fontWeight: 500, color: '#fafafa' }}>
+              D-NSGA-II vs 标准NSGA-II 对比
+            </span>
+          </div>
+          
+          <Row gutter={16}>
+            <Col span={8}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#10b981' }}>
+                  {report.comparison_stats.dnsga2_wins}
+                </div>
+                <div style={{ fontSize: 11, color: '#71717a' }}>D-NSGA-II 胜出</div>
+              </div>
+            </Col>
+            <Col span={8}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#3b82f6' }}>
+                  {report.comparison_stats.standard_wins}
+                </div>
+                <div style={{ fontSize: 11, color: '#71717a' }}>标准NSGA-II 胜出</div>
+              </div>
+            </Col>
+            <Col span={8}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ 
+                  fontSize: 24, 
+                  fontWeight: 600, 
+                  color: report.comparison_stats.time_improvement > 0 ? '#10b981' : '#ef4444' 
+                }}>
+                  {report.comparison_stats.time_improvement.toFixed(1)}%
+                </div>
+                <div style={{ fontSize: 11, color: '#71717a' }}>速度提升</div>
+              </div>
+            </Col>
+          </Row>
+          
+          <div style={{ 
+            marginTop: 16, 
+            paddingTop: 16,
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            justifyContent: 'space-around'
+          }}>
+            <span style={{ fontSize: 12, color: '#71717a' }}>
+              D-NSGA-II 平均: 
+              <span style={{ color: '#10b981', marginLeft: 4 }}>
+                {(report.comparison_stats.dnsga2_avg_time * 1000).toFixed(1)}ms
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: '#71717a' }}>
+              标准NSGA-II 平均: 
+              <span style={{ color: '#3b82f6', marginLeft: 4 }}>
+                {(report.comparison_stats.standard_avg_time * 1000).toFixed(1)}ms
+              </span>
+            </span>
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  const tabItems = [
+    {
+      key: 'summary',
+      label: (
+        <span>
+          <FileTextOutlined />
+          概览
+        </span>
+      ),
+      children: summaryContent
+    },
+    {
+      key: 'charts',
+      label: (
+        <span>
+          <BarChartOutlined />
+          对比分析
+        </span>
+      ),
+      children: <ComparisonChart report={report} />
+    }
+  ]
+
+  return (
+    <Modal
+      title={null}
+      open={visible}
+      onCancel={() => {
+        setActiveTab('summary')
+        onClose()
+      }}
+      footer={null}
+      width={activeTab === 'charts' ? 900 : 600}
+      styles={{
+        content: {
+          background: 'linear-gradient(145deg, rgba(24, 24, 27, 0.98), rgba(17, 17, 19, 0.99))',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 20,
+          padding: 0
+        },
+        body: {
+          padding: 32
+        }
+      }}
+    >
+      <h2 style={{ 
+        margin: 0, 
+        marginBottom: 24,
+        fontSize: 20, 
+        fontWeight: 600,
+        color: '#fafafa',
+        textAlign: 'center'
+      }}>
+        模拟报告
+      </h2>
+
+      <Tabs 
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+        centered
+      />
     </Modal>
   )
 }

@@ -1,7 +1,7 @@
 """D-NSGA-II优化器"""
 import random
 import numpy as np
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 from deap import base, creator, tools, algorithms
 from .config import settings
 from .models import Reservation, RequestPriority
@@ -47,19 +47,21 @@ class DNSGAIIOptimizer:
     def evaluate(self, individual: List[int]) -> Tuple[float, float, float]:
         """适应值函数 - 返回(未满足数, -利用率, -公平性)"""
         if not self.current_requests:
+            logger.warning("evaluate调用时current_requests为空")
             return (0.0, 0.0, 0.0)
         
         # 检查时间冲突
         penalty = self._check_conflicts(individual)
         
         # 目标1: 未满足请求数
+        # f₁(I) = n - Σ sᵢ
         unmet = len(individual) - sum(individual)
         
         # 目标2: 座位利用率
         # f₂(I) = (Σ (T_end(i) - T_start(i)) * sᵢ) / (Total_Seats * Simulation_Duration)
         total_occupied = 0
         for i, status in enumerate(individual):
-            if status == 1:
+            if status == 1 and i < len(self.current_requests):
                 req = self.current_requests[i]
                 total_occupied += req.end_time - req.start_time
         
@@ -67,39 +69,63 @@ class DNSGAIIOptimizer:
         utilization = total_occupied / max_capacity if max_capacity > 0 else 0
         
         # 目标3: 公平性
-        met_indices = [i for i, s in enumerate(individual) if s == 1]
+        # f₃(I) = 1 / (avg_duration + ε)
+        met_indices = [i for i, s in enumerate(individual) if s == 1 and i < len(self.current_requests)]
         if met_indices:
             durations = [self.current_requests[i].end_time - self.current_requests[i].start_time 
                         for i in met_indices]
             avg_duration = sum(durations) / len(durations)
-            fairness = 1 / (avg_duration + 1e-6)
+            fairness = 1 / (avg_duration + 1e-6)  # 加1e-6防止除零
         else:
             fairness = 0
         
         return (unmet + penalty, -utilization, -fairness)
     
     def _check_conflicts(self, individual: List[int]) -> float:
-        """检查时间冲突 - 检查所有被满足的请求之间是否存在时间重叠
+        """检查时间冲突 - 检查同一座位在同一时间段是否被分配给多个请求
         
-        规范要求：返回True/False，有冲突则给固定惩罚值10000
+        硬约束: 同一个座位在同一时间段不能被分配给两个学生
+        处理方法: 有冲突则给固定惩罚值10000
         """
         met_requests = [(i, self.current_requests[i]) for i, s in enumerate(individual) if s == 1]
         
         if not met_requests:
             return 0.0
         
-        # 检查任意两个被满足请求之间的时间冲突
-        # 同一时刻被满足的请求数不能超过总座位数
+        # 按座位分组检查时间冲突
+        seat_requests: Dict[int, List[Any]] = {}
+        for idx, req in met_requests:
+            seat_id = req.seat_id if req.seat_id else 0  # 未分配座位的请求暂时归为0
+            if seat_id not in seat_requests:
+                seat_requests[seat_id] = []
+            seat_requests[seat_id].append(req)
+        
+        # 检查每个座位的时间冲突
+        for seat_id, requests in seat_requests.items():
+            if seat_id == 0:
+                # 未分配座位的请求，检查总数是否超过可用座位
+                continue
+            
+            # 检查同一座位的请求是否有时间重叠
+            for i in range(len(requests)):
+                for j in range(i + 1, len(requests)):
+                    req1, req2 = requests[i], requests[j]
+                    # 时间重叠判断: s1 < e2 and s2 < e1
+                    if req1.start_time < req2.end_time and req2.start_time < req1.end_time:
+                        logger.debug(f"座位{seat_id}存在时间冲突: [{req1.start_time}-{req1.end_time}] vs [{req2.start_time}-{req2.end_time}]")
+                        return 10000.0  # 固定惩罚值
+        
+        # 额外检查：同一时刻的并发请求数不能超过总座位数
         all_times = set()
         for idx, req in met_requests:
             all_times.add(req.start_time)
             all_times.add(req.end_time)
         
         for t in all_times:
-            # 计算时刻t的并发请求数
             concurrent = sum(1 for idx, req in met_requests if req.start_time <= t < req.end_time)
             if concurrent > self.total_seats:
-                return 10000.0  # 固定惩罚值
+                logger.debug(f"时刻{t}并发请求数{concurrent}超过座位数{self.total_seats}")
+                return 10000.0
         
         return 0.0
     
@@ -209,6 +235,82 @@ class DNSGAIIOptimizer:
             })
         
         logger.info(f"优化完成: {len(pareto_solutions)}个Pareto解, 耗时{execution_time:.2f}s")
+        
+        return {
+            "pareto_front": pareto_solutions,
+            "execution_time": execution_time,
+            "generation_count": settings.N_GENERATIONS
+        }
+    
+    def optimize_standard_nsga2(self, requests: List[Reservation]) -> Dict[str, Any]:
+        """执行标准NSGA-II优化（用于对比，不使用精英解继承）"""
+        start_time = time.time()
+        self.current_requests = requests
+        n_requests = len(requests)
+        
+        if n_requests == 0:
+            return {
+                "pareto_front": [],
+                "execution_time": 0,
+                "generation_count": 0
+            }
+        
+        self.setup_toolbox(n_requests)
+        
+        # 标准NSGA-II：完全随机初始化种群（不继承精英解）
+        population = self.toolbox.population(n=settings.POPULATION_SIZE)
+        
+        # 评估初始种群
+        fitnesses = map(self.toolbox.evaluate, population)
+        for ind, fit in zip(population, fitnesses):
+            ind.fitness.values = fit
+        
+        # 进化循环（与D-NSGA-II相同）
+        for gen in range(settings.N_GENERATIONS):
+            population = self.toolbox.select(population, len(population))
+            
+            k = len(population) - (len(population) % 4)
+            if k < 4:
+                k = 4
+            offspring = tools.selTournamentDCD(population, k)
+            offspring = [self.toolbox.clone(ind) for ind in offspring]
+            
+            for i in range(0, len(offspring) - 1, 2):
+                if random.random() < settings.CROSSOVER_PROB:
+                    self.toolbox.mate(offspring[i], offspring[i + 1])
+                    del offspring[i].fitness.values
+                    del offspring[i + 1].fitness.values
+            
+            for mutant in offspring:
+                if random.random() < settings.MUTATION_PROB:
+                    self.toolbox.mutate(mutant)
+                    del mutant.fitness.values
+            
+            invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+            fitnesses = map(self.toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+            
+            population = self.toolbox.select(population + offspring, settings.POPULATION_SIZE)
+        
+        # 提取Pareto前沿
+        pareto_front = tools.sortNondominated(population, len(population), first_front_only=True)[0]
+        
+        execution_time = time.time() - start_time
+        
+        # 构建结果
+        pareto_solutions = []
+        for i, ind in enumerate(pareto_front):
+            assignments = [self.current_requests[j].id for j, s in enumerate(ind) if s == 1 and j < len(self.current_requests)]
+            pareto_solutions.append({
+                "id": i,
+                "unmet_requests": int(ind.fitness.values[0]),
+                "utilization_rate": float(-ind.fitness.values[1]),
+                "fairness_score": float(-ind.fitness.values[2]),
+                "assignments": assignments
+            })
+        
+        logger.info(f"标准NSGA-II优化完成: {len(pareto_solutions)}个Pareto解, 耗时{execution_time:.2f}s")
         
         return {
             "pareto_front": pareto_solutions,

@@ -64,6 +64,8 @@ class Simulator:
         self.request_id_counter = 1
         self.last_optimization_time = 0
         self.callbacks: List[Callable] = []
+        # 算法对比数据
+        self.comparison_data: List[Dict] = []
         
     def reset(self):
         """重置模拟器"""
@@ -76,6 +78,7 @@ class Simulator:
         self.is_optimizing = False
         self.request_id_counter = 1
         self.last_optimization_time = 0
+        self.comparison_data = []
         optimizer.last_pareto_front = []
         optimizer.pareto_history = []
     
@@ -130,7 +133,10 @@ class Simulator:
         return s1 < e2 and s2 < e1
     
     def generate_request(self) -> Optional[Dict]:
-        """根据当前时段生成请求"""
+        """根据当前时段生成请求
+        
+        注意：生成请求时不预先分配座位，座位分配由优化器决定
+        """
         period = self.get_current_period()
         if not period:
             return None
@@ -153,13 +159,11 @@ class Simulator:
             weights=priority_weights
         )[0]
         
-        # 分配座位：选择该时段空闲的座位
-        seat_id = self._find_available_seat(start_time, end_time)
-        
+        # 不预先分配座位，由优化器决定哪些请求被满足，再分配座位
         request = {
             "id": self.request_id_counter,
             "user_id": random.randint(1, 100),
-            "seat_id": seat_id,  # 可能为None，表示暂无可用座位，等待优化器处理
+            "seat_id": None,  # 座位由优化器决定后再分配
             "start_time": start_time,
             "end_time": end_time,
             "priority": priority,
@@ -190,7 +194,7 @@ class Simulator:
         return False, ""
     
     async def run_optimization(self, trigger_reason: str) -> Dict:
-        """执行优化"""
+        """执行优化，同时运行D-NSGA-II和标准NSGA-II进行对比"""
         self.is_optimizing = True
         await self.notify_callbacks("optimization_start", {"reason": trigger_reason})
         
@@ -211,7 +215,33 @@ class Simulator:
             # 运行D-NSGA-II
             result = optimizer.optimize(requests)
             
+            # 运行标准NSGA-II进行对比
+            standard_result = optimizer.optimize_standard_nsga2(requests)
+            
             self.last_optimization_time = self.current_time
+            
+            # 计算对比指标
+            dnsga_best = self._get_best_solution(result["pareto_front"])
+            standard_best = self._get_best_solution(standard_result["pareto_front"])
+            
+            comparison = {
+                "time": self.current_time,
+                "dnsga2": {
+                    "execution_time": result["execution_time"],
+                    "pareto_size": len(result["pareto_front"]),
+                    "best_unmet": dnsga_best["unmet_requests"] if dnsga_best else None,
+                    "best_utilization": dnsga_best["utilization_rate"] if dnsga_best else None,
+                    "best_fairness": dnsga_best["fairness_score"] if dnsga_best else None
+                },
+                "standard_nsga2": {
+                    "execution_time": standard_result["execution_time"],
+                    "pareto_size": len(standard_result["pareto_front"]),
+                    "best_unmet": standard_best["unmet_requests"] if standard_best else None,
+                    "best_utilization": standard_best["utilization_rate"] if standard_best else None,
+                    "best_fairness": standard_best["fairness_score"] if standard_best else None
+                }
+            }
+            self.comparison_data.append(comparison)
             
             # 记录日志
             log_entry = {
@@ -220,12 +250,16 @@ class Simulator:
                 "trigger_reason": trigger_reason,
                 "requests_count": len(self.pending_requests),
                 "pareto_size": len(result["pareto_front"]),
-                "execution_time": result["execution_time"]
+                "execution_time": result["execution_time"],
+                "standard_pareto_size": len(standard_result["pareto_front"]),
+                "standard_execution_time": standard_result["execution_time"]
             }
             self.optimization_logs.append(log_entry)
             
             await self.notify_callbacks("optimization_complete", {
                 "result": result,
+                "standard_result": standard_result,
+                "comparison": comparison,
                 "log": log_entry
             })
             
@@ -233,8 +267,22 @@ class Simulator:
         finally:
             self.is_optimizing = False
     
+    def _get_best_solution(self, pareto_front: List[Dict]) -> Optional[Dict]:
+        """从Pareto前沿中选择最佳解（综合考虑三个目标）"""
+        if not pareto_front:
+            return None
+        
+        # 简单策略：选择未满足数最少的解
+        return min(pareto_front, key=lambda x: x["unmet_requests"])
+    
     def apply_solution(self, solution: Dict):
-        """应用选定的Pareto解，确保座位分配不冲突"""
+        """应用选定的Pareto解
+        
+        优化器决定哪些请求被满足(assignments)，此方法负责：
+        1. 为被满足的请求分配具体座位
+        2. 更新请求状态
+        3. 确保座位分配不冲突
+        """
         approved_ids = set(solution["assignments"])
         
         # 按开始时间排序待批准的请求，优先处理早的请求
@@ -242,21 +290,30 @@ class Simulator:
         pending_to_approve.sort(key=lambda r: r["start_time"])
         
         new_pending = []
+        approved_count = 0
+        rejected_count = 0
+        
         for req in self.pending_requests:
             if req["id"] in approved_ids:
-                # 重新分配座位，确保不冲突
+                # 优化器决定满足此请求，分配座位
                 seat_id = self._find_available_seat(req["start_time"], req["end_time"])
                 if seat_id is not None:
                     req["status"] = RequestStatus.APPROVED
                     req["seat_id"] = seat_id
                     self.approved_requests.append(req)
+                    approved_count += 1
+                    logger.debug(f"请求{req['id']}已批准，分配座位{seat_id}")
                 else:
-                    # 无可用座位，保留在待处理队列
+                    # 无可用座位（理论上优化器应避免此情况），保留在待处理队列
                     new_pending.append(req)
+                    logger.warning(f"请求{req['id']}被优化器选中但无可用座位")
             else:
+                # 优化器决定不满足此请求
                 new_pending.append(req)
+                rejected_count += 1
         
         self.pending_requests = new_pending
+        logger.info(f"应用解完成: 批准{approved_count}个, 保留{len(new_pending)}个待处理")
     
     def get_status(self) -> Dict:
         """获取当前系统状态"""
@@ -335,6 +392,9 @@ class Simulator:
         """生成最终报告"""
         total_requests = len(self.approved_requests) + len(self.rejected_requests) + len(self.pending_requests)
         
+        # 计算算法对比统计
+        comparison_stats = self._calculate_comparison_stats()
+        
         return {
             "summary": {
                 "total_requests": total_requests,
@@ -349,7 +409,58 @@ class Simulator:
                 "time_triggered": sum(1 for l in self.optimization_logs if l["trigger_type"] == "time"),
                 "avg_execution_time": sum(l["execution_time"] for l in self.optimization_logs) / len(self.optimization_logs) if self.optimization_logs else 0
             },
+            "comparison_stats": comparison_stats,
+            "comparison_data": self.comparison_data,
             "logs": self.optimization_logs
+        }
+    
+    def _calculate_comparison_stats(self) -> Dict:
+        """计算D-NSGA-II与标准NSGA-II的对比统计"""
+        if not self.comparison_data:
+            return {
+                "dnsga2_avg_time": 0,
+                "standard_avg_time": 0,
+                "time_improvement": 0,
+                "dnsga2_avg_pareto_size": 0,
+                "standard_avg_pareto_size": 0,
+                "dnsga2_wins": 0,
+                "standard_wins": 0,
+                "ties": 0
+            }
+        
+        dnsga2_times = [c["dnsga2"]["execution_time"] for c in self.comparison_data]
+        standard_times = [c["standard_nsga2"]["execution_time"] for c in self.comparison_data]
+        dnsga2_pareto_sizes = [c["dnsga2"]["pareto_size"] for c in self.comparison_data]
+        standard_pareto_sizes = [c["standard_nsga2"]["pareto_size"] for c in self.comparison_data]
+        
+        dnsga2_avg_time = sum(dnsga2_times) / len(dnsga2_times)
+        standard_avg_time = sum(standard_times) / len(standard_times)
+        
+        # 计算胜负（基于未满足请求数）
+        dnsga2_wins = 0
+        standard_wins = 0
+        ties = 0
+        
+        for c in self.comparison_data:
+            d_unmet = c["dnsga2"]["best_unmet"]
+            s_unmet = c["standard_nsga2"]["best_unmet"]
+            if d_unmet is not None and s_unmet is not None:
+                if d_unmet < s_unmet:
+                    dnsga2_wins += 1
+                elif s_unmet < d_unmet:
+                    standard_wins += 1
+                else:
+                    ties += 1
+        
+        return {
+            "dnsga2_avg_time": dnsga2_avg_time,
+            "standard_avg_time": standard_avg_time,
+            "time_improvement": ((standard_avg_time - dnsga2_avg_time) / standard_avg_time * 100) if standard_avg_time > 0 else 0,
+            "dnsga2_avg_pareto_size": sum(dnsga2_pareto_sizes) / len(dnsga2_pareto_sizes),
+            "standard_avg_pareto_size": sum(standard_pareto_sizes) / len(standard_pareto_sizes),
+            "dnsga2_wins": dnsga2_wins,
+            "standard_wins": standard_wins,
+            "ties": ties
         }
 
 

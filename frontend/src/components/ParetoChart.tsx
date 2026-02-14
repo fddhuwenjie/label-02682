@@ -213,9 +213,11 @@ const ParetoChart: React.FC<Props> = ({ solutions, onSelect, selectedId }) => {
         </Space>
       </div>
       <ReactECharts 
+        key={use3D ? '3d' : '2d'}
         option={use3D ? option3D : option2D} 
         style={{ height: 370 }}
         onEvents={{ click: handleClick }}
+        notMerge={true}
       />
     </div>
   )
