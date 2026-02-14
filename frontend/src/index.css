@@ -274,27 +274,35 @@ body {
 
 /* Popconfirm / Popover */
 .ant-popover {
-  --antd-arrow-background-color: var(--bg-secondary) !important;
+  --antd-arrow-background-color: #18181b !important;
 }
 
 .ant-popover-inner {
-  background: var(--bg-secondary) !important;
-  border: 1px solid var(--border-color) !important;
+  background: #18181b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 12px !important;
   box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.5) !important;
 }
 
 .ant-popover-arrow::before,
 .ant-popover-arrow::after {
-  background: var(--bg-secondary) !important;
+  background: #18181b !important;
 }
 
 .ant-popconfirm-message {
-  color: var(--text-primary) !important;
+  color: #fafafa !important;
 }
 
 .ant-popconfirm-message-title {
-  color: var(--text-primary) !important;
+  color: #fafafa !important;
+}
+
+.ant-popconfirm-title {
+  color: #fafafa !important;
+}
+
+.ant-popconfirm-description {
+  color: #a1a1aa !important;
 }
 
 .ant-popconfirm-message-icon .anticon {
@@ -308,7 +316,7 @@ body {
 .ant-popconfirm-buttons .ant-btn-default {
   background: rgba(255, 255, 255, 0.08) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: var(--text-primary) !important;
+  color: #fafafa !important;
 }
 
 .ant-popconfirm-buttons .ant-btn-default:hover {
@@ -321,6 +329,15 @@ body {
   background: #3b82f6 !important;
   border: none !important;
   color: #fff !important;
+}
+
+/* Popconfirm 内部所有文字 */
+.ant-popover .ant-popconfirm-inner-content {
+  color: #fafafa !important;
+}
+
+.ant-popover-inner-content {
+  color: #fafafa !important;
 }
 
 /* Message */

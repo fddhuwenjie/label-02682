@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Form, Input, Button, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +6,131 @@ import { useAuth } from '../context/AuthContext'
 const Login: React.FC = () => {
   const { login } = useAuth()
   const [loading, setLoading] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // 星空背景动画
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+
+    // 创建星星
+    const stars: Array<{
+      x: number
+      y: number
+      radius: number
+      opacity: number
+      speed: number
+      twinkleSpeed: number
+    }> = []
+
+    for (let i = 0; i < 50; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: Math.random() * 1.5 + 0.5,
+        opacity: Math.random(),
+        speed: Math.random() * 0.5 + 0.1,
+        twinkleSpeed: Math.random() * 0.02 + 0.005
+      })
+    }
+
+    // 流星
+    const shootingStars: Array<{
+      x: number
+      y: number
+      length: number
+      speed: number
+      opacity: number
+      active: boolean
+    }> = []
+
+    const createShootingStar = () => {
+      if (shootingStars.length < 3 && Math.random() < 0.01) {
+        shootingStars.push({
+          x: Math.random() * canvas.width,
+          y: 0,
+          length: Math.random() * 80 + 40,
+          speed: Math.random() * 8 + 6,
+          opacity: 1,
+          active: true
+        })
+      }
+    }
+
+    let animationId: number
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // 绘制星星
+      stars.forEach(star => {
+        star.opacity += star.twinkleSpeed
+        if (star.opacity > 1 || star.opacity < 0.2) {
+          star.twinkleSpeed = -star.twinkleSpeed
+        }
+
+        ctx.beginPath()
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`
+        ctx.fill()
+
+        // 部分星星有光晕
+        if (star.radius > 1) {
+          ctx.beginPath()
+          ctx.arc(star.x, star.y, star.radius * 2, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity * 0.1})`
+          ctx.fill()
+        }
+      })
+
+      // 创建和绘制流星
+      createShootingStar()
+      shootingStars.forEach((star, index) => {
+        if (!star.active) return
+
+        star.x += star.speed
+        star.y += star.speed
+        star.opacity -= 0.01
+
+        if (star.opacity <= 0 || star.x > canvas.width || star.y > canvas.height) {
+          shootingStars.splice(index, 1)
+          return
+        }
+
+        const gradient = ctx.createLinearGradient(
+          star.x, star.y,
+          star.x - star.length * 0.7, star.y - star.length * 0.7
+        )
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${star.opacity})`)
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+        ctx.beginPath()
+        ctx.moveTo(star.x, star.y)
+        ctx.lineTo(star.x - star.length * 0.7, star.y - star.length * 0.7)
+        ctx.strokeStyle = gradient
+        ctx.lineWidth = 2
+        ctx.stroke()
+      })
+
+      animationId = requestAnimationFrame(animate)
+    }
+
+    animate()
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas)
+      cancelAnimationFrame(animationId)
+    }
+  }, [])
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true)
@@ -22,21 +147,34 @@ const Login: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0a0a0b',
+      background: 'linear-gradient(to bottom, #0a0a0b 0%, #0f0f12 50%, #0a0a0b 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* 背景装饰 */}
+      {/* 星空画布 */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none'
+        }}
+      />
+
+      {/* 背景光晕 */}
       <div style={{
         position: 'absolute',
         top: '20%',
         left: '10%',
         width: 400,
         height: 400,
-        background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%)',
         borderRadius: '50%',
         filter: 'blur(60px)'
       }} />
@@ -46,9 +184,20 @@ const Login: React.FC = () => {
         right: '10%',
         width: 500,
         height: 500,
-        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)',
         borderRadius: '50%',
         filter: 'blur(60px)'
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 600,
+        height: 600,
+        background: 'radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%)',
+        borderRadius: '50%',
+        filter: 'blur(80px)'
       }} />
 
       <div style={{
@@ -154,29 +303,7 @@ const Login: React.FC = () => {
           </Form.Item>
         </Form>
 
-        <div style={{
-          marginTop: 32,
-          padding: 16,
-          background: 'rgba(255, 255, 255, 0.03)',
-          borderRadius: 12,
-          border: '1px solid rgba(255, 255, 255, 0.05)'
-        }}>
-          <div style={{ 
-            fontSize: 12, 
-            color: '#71717a', 
-            marginBottom: 8,
-            textTransform: 'uppercase',
-            letterSpacing: 1
-          }}>
-            测试账号
-          </div>
-          <div style={{ fontSize: 13, color: '#a1a1aa' }}>
-            管理员: <span style={{ color: '#fafafa' }}>admin / admin123</span>
-          </div>
-          <div style={{ fontSize: 13, color: '#a1a1aa' }}>
-            学生: <span style={{ color: '#fafafa' }}>student / student123</span>
-          </div>
-        </div>
+
       </div>
     </div>
   )
