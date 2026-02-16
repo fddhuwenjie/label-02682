@@ -238,7 +238,8 @@ const Dashboard: React.FC = () => {
         {user?.role === 'admin' && (
           <div style={{ marginBottom: 24 }}>
             <ControlPanel 
-              isRunning={status?.is_running || false} 
+              isRunning={status?.is_running || false}
+              statusLoaded={status !== null}
               onRefresh={fetchData}
             />
           </div>

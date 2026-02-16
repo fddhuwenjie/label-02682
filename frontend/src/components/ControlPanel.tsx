@@ -11,21 +11,37 @@ import { simulationApi } from '../api'
 
 interface Props {
   isRunning: boolean
+  statusLoaded?: boolean
   onRefresh: () => void
 }
 
-const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
+const ControlPanel: React.FC<Props> = ({ isRunning, statusLoaded = true, onRefresh }) => {
   const [duration, setDuration] = React.useState(120)
   const [loading, setLoading] = React.useState<string | null>(null)
+  const [localRunning, setLocalRunning] = React.useState(isRunning)
+
+  // 同步外部状态
+  React.useEffect(() => {
+    setLocalRunning(isRunning)
+  }, [isRunning])
 
   const handleStart = async () => {
+    if (localRunning || loading === 'start') return
     setLoading('start')
+    setLocalRunning(true)
     try {
       await simulationApi.start(duration)
       message.success('模拟已启动')
       onRefresh()
     } catch (err: any) {
-      message.error(err.detail || '启动失败')
+      // 如果后端返回"已在运行"，保持运行状态但不显示成功
+      if (err.detail?.includes('已在运行')) {
+        // 静默处理，只刷新状态
+        onRefresh()
+      } else {
+        setLocalRunning(false)
+        message.error(err.detail || '启动失败')
+      }
     } finally {
       setLoading(null)
     }
@@ -36,6 +52,7 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
     try {
       await simulationApi.stop()
       message.success('模拟已停止')
+      setLocalRunning(false)
       onRefresh()
     } catch (err: any) {
       message.error(err.detail || '停止失败')
@@ -49,6 +66,7 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
     try {
       await simulationApi.reset()
       message.success('模拟已重置')
+      setLocalRunning(false)
       onRefresh()
     } catch (err: any) {
       message.error(err.detail || '重置失败')
@@ -82,6 +100,9 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
     }
   }
 
+  const running = localRunning || isRunning
+  const disabled = !statusLoaded || loading !== null
+
   return (
     <Card title="控制面板">
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -92,17 +113,18 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
             onChange={v => setDuration(v || 120)}
             min={60}
             max={720}
-            disabled={isRunning}
+            disabled={running}
           />
         </Space>
         
         <Space wrap>
-          {!isRunning ? (
+          {!running ? (
             <Button 
               type="primary" 
               icon={<PlayCircleOutlined />}
               onClick={handleStart}
               loading={loading === 'start'}
+              disabled={disabled}
             >
               启动模拟
             </Button>
@@ -112,15 +134,16 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
               icon={<PauseCircleOutlined />}
               onClick={handleStop}
               loading={loading === 'stop'}
+              disabled={!statusLoaded}
             >
               停止模拟
             </Button>
           )}
           
-          <Popconfirm title="确定重置模拟？" onConfirm={handleReset} disabled={isRunning}>
+          <Popconfirm title="确定重置模拟？" onConfirm={handleReset} disabled={running || !statusLoaded}>
             <Button 
               icon={<ReloadOutlined />}
-              disabled={isRunning}
+              disabled={running || !statusLoaded}
               loading={loading === 'reset'}
             >
               重置
@@ -130,7 +153,7 @@ const ControlPanel: React.FC<Props> = ({ isRunning, onRefresh }) => {
           <Button 
             icon={<StepForwardOutlined />}
             onClick={handleStep}
-            disabled={isRunning}
+            disabled={running || !statusLoaded}
             loading={loading === 'step'}
           >
             单步执行

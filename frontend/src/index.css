@@ -628,3 +628,70 @@ body {
 .ant-select-item-option-selected:not(.ant-select-item-option-disabled) .ant-select-item-option-state {
   color: var(--accent-blue) !important;
 }
+
+/* Tabs 标签页 */
+.ant-tabs {
+  color: var(--text-primary) !important;
+}
+
+.ant-tabs-tab {
+  color: #71717a !important;
+  font-weight: 500 !important;
+  padding: 12px 20px !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-tabs-tab:hover {
+  color: #a1a1aa !important;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #3b82f6 !important;
+}
+
+.ant-tabs-tab.ant-tabs-tab-active {
+  color: #3b82f6 !important;
+}
+
+.ant-tabs-tab-btn {
+  color: inherit !important;
+}
+
+.ant-tabs-ink-bar {
+  background: #3b82f6 !important;
+}
+
+.ant-tabs-nav::before {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+
+/* Tabs 标签页 */
+.ant-tabs {
+  color: var(--text-primary) !important;
+}
+
+.ant-tabs-tab {
+  color: #a1a1aa !important;
+  font-weight: 500 !important;
+}
+
+.ant-tabs-tab:hover {
+  color: #fafafa !important;
+}
+
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #3b82f6 !important;
+}
+
+.ant-tabs-tab-btn {
+  color: inherit !important;
+}
+
+.ant-tabs-ink-bar {
+  background: #3b82f6 !important;
+}
+
+.ant-tabs-nav::before {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
