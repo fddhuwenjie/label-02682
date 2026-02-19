@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { Row, Col, Empty, Statistic, Card } from 'antd'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, 
+  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts'
 import { SimulationReport } from '../types'
@@ -194,8 +194,11 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                   contentStyle={{ 
                     background: '#18181b', 
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8
+                    borderRadius: 8,
+                    color: '#fafafa'
                   }}
+                  labelStyle={{ color: '#fafafa' }}
+                  itemStyle={{ color: '#a1a1aa' }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -217,10 +220,23 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                   contentStyle={{ 
                     background: '#18181b', 
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8
+                    borderRadius: 8,
+                    color: '#fafafa'
                   }}
+                  labelStyle={{ color: '#fafafa' }}
+                  itemStyle={{ color: '#a1a1aa' }}
+                  formatter={(value) => (value === 0 || value === undefined) ? null : [value, '次数']}
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 />
-                <Bar dataKey="value" name="次数" />
+                <Bar 
+                  dataKey="value" 
+                  name="次数"
+                  radius={[0, 4, 4, 0]}
+                >
+                  {triggerData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -243,8 +259,11 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                     contentStyle={{ 
                       background: '#18181b', 
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 8
+                      borderRadius: 8,
+                      color: '#fafafa'
                     }}
+                    labelStyle={{ color: '#fafafa' }}
+                    itemStyle={{ color: '#a1a1aa' }}
                   />
                   <Legend />
                   <Line 
@@ -285,12 +304,17 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                     contentStyle={{ 
                       background: '#18181b', 
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 8
+                      borderRadius: 8,
+                      color: '#fafafa'
                     }}
+                    labelStyle={{ color: '#fafafa' }}
+                    itemStyle={{ color: '#a1a1aa' }}
+                    formatter={(value, name) => (value === 0 || value === undefined) ? null : [value, name]}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   />
                   <Legend />
-                  <Bar dataKey="dnsga2Unmet" fill="#10b981" name="D-NSGA-II" />
-                  <Bar dataKey="standardUnmet" fill="#3b82f6" name="标准NSGA-II" />
+                  <Bar dataKey="dnsga2Unmet" fill="#10b981" name="D-NSGA-II" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="standardUnmet" fill="#3b82f6" name="标准NSGA-II" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -313,8 +337,11 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                   contentStyle={{ 
                     background: '#18181b', 
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8
+                    borderRadius: 8,
+                    color: '#fafafa'
                   }}
+                  labelStyle={{ color: '#fafafa' }}
+                  itemStyle={{ color: '#a1a1aa' }}
                 />
                 <Legend />
                 <Line 
@@ -353,8 +380,13 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                   contentStyle={{ 
                     background: '#18181b', 
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8
+                    borderRadius: 8,
+                    color: '#fafafa'
                   }}
+                  labelStyle={{ color: '#fafafa' }}
+                  itemStyle={{ color: '#a1a1aa' }}
+                  formatter={(value, name) => (value === 0 || value === undefined) ? null : [value, name]}
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 />
                 <Bar dataKey="count" fill="#10b981" name="次数" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -393,8 +425,11 @@ const ComparisonChart: React.FC<Props> = ({ report }) => {
                     contentStyle={{ 
                       background: '#18181b', 
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 8
+                      borderRadius: 8,
+                      color: '#fafafa'
                     }}
+                    labelStyle={{ color: '#fafafa' }}
+                    itemStyle={{ color: '#a1a1aa' }}
                   />
                 </RadarChart>
               </ResponsiveContainer>

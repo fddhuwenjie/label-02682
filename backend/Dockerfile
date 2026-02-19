@@ -29,8 +29,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY app ./app
 COPY config.yaml .
 
-# 创建非root用户
-RUN useradd -m -u 1000 appuser && \
+# 创建数据目录和非root用户
+RUN mkdir -p /app/data && \
+    useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
